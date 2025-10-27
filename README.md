@@ -1,6 +1,5 @@
 # Sinkronisasi-Distributed-Systems
-
-Distributed Sync System adalah proyek simulasi sistem terdistribusi yang mencakup beberapa komponen penting:  
+Distributed Queue System adalah sistem antrean terdistribusi yang mendukung multiple producers dan consumers, message persistence, recovery, dan at-least-once delivery guarantee. Sistem ini menggunakan consistent hashing untuk mendistribusikan pesan antar node sehingga scalable dan fault-tolerant. Adapun hal yang mencakup beberapa komponen penting:  
 1. **Distributed Lock Manager** (Raft-based)  
 2. **Distributed Queue System** (consistent hashing, message persistence)  
 3. **Distributed Cache Coherence** (MESI/MOSI/MOESI stub)  
@@ -37,11 +36,11 @@ Proyek ini dirancang untuk mendemonstrasikan prinsip-prinsip sistem terdistribus
 - Environment configuration via `.env` file
 
 ## Teknologi yang Digunakan
-- **Python 3.11**: bahasa pemrograman utama  
-- **SQLite**: persistence sederhana untuk queue  
-- **Threading & Queue (Python)**: simulasi multiple producers/consumers  
+- **Python 3.8+**: bahasa pemrograman utama  
+- **Redis**: persistence dan distributed state untuk queue  
+- **asyncio & aiohttp**: komunikasi antar-node non-blocking  
 - **Docker & docker-compose**: containerization dan orchestration  
-- **Pickle**: serialisasi pesan  
+- **Pickle / JSON**: serialisasi pesan  
 - **Hashlib**: consistent hashing untuk distribusi pesan  
 - **OS & Env**: konfigurasi environment  
 

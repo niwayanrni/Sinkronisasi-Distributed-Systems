@@ -1,77 +1,63 @@
-import hashlib
-import threading
-import queue
-import sqlite3
-import pickle
-import os
-from typing import Any, Dict, List
+import asyncio
+import aioredis
+import json
+from hashlib import sha256
+from aiohttp import web
+from src.utils.metrics import increment_metric
+
+REDIS_QUEUE_PREFIX = "distributed_queue:"
 
 class QueueNode:
-    def __init__(self, node_id: str, db_path: str = "queue_db.sqlite"):
+    def __init__(self, node_id, peers=None, redis_url="redis://localhost"):
         self.node_id = node_id
-        self.queue = queue.Queue()
-        self.lock = threading.Lock()
-        self.db_path = db_path
-        self._setup_db()
-    
-    def _setup_db(self):
-        """Buat tabel message persistence jika belum ada"""
-        conn = sqlite3.connect(self.db_path)
-        c = conn.cursor()
-        c.execute("""
-            CREATE TABLE IF NOT EXISTS messages (
-                id TEXT PRIMARY KEY,
-                payload BLOB
-            )
-        """)
-        conn.commit()
-        conn.close()
+        self.peers = peers or []
+        self.redis = None
+        self.redis_url = redis_url
 
-    def persist_message(self, msg_id: str, payload: Any):
-        """Simpan pesan ke database"""
-        conn = sqlite3.connect(self.db_path)
-        c = conn.cursor()
-        c.execute("INSERT OR REPLACE INTO messages (id, payload) VALUES (?, ?)",
-                  (msg_id, pickle.dumps(payload)))
-        conn.commit()
-        conn.close()
+    async def connect_redis(self):
+        self.redis = await aioredis.from_url(self.redis_url, encoding="utf-8", decode_responses=True)
 
-    def recover_messages(self):
-        """Load pesan yang belum dikonsumsi dari database"""
-        conn = sqlite3.connect(self.db_path)
-        c = conn.cursor()
-        c.execute("SELECT id, payload FROM messages")
-        rows = c.fetchall()
-        for msg_id, payload_blob in rows:
-            payload = pickle.loads(payload_blob)
-            self.queue.put((msg_id, payload))
-        conn.close()
+    def get_node_for_key(self, key):
+        hash_val = int(sha256(key.encode()).hexdigest(), 16)
+        all_nodes = sorted(self.peers + [self.node_id])
+        idx = hash_val % len(all_nodes)
+        return all_nodes[idx]
 
-    def add_message(self, msg_id: str, payload: Any):
-        """Add message ke queue + persist"""
-        with self.lock:
-            self.persist_message(msg_id, payload)
-            self.queue.put((msg_id, payload))
+    async def enqueue(self, key, message):
+        target_node = self.get_node_for_key(key)
+        if target_node != self.node_id:
+            # Forward to responsible node via HTTP
+            async with aiohttp.ClientSession() as session:
+                url = f"http://{target_node}/enqueue"
+                await session.post(url, json={"key": key, "message": message})
+        else:
+            # Store in Redis
+            queue_name = REDIS_QUEUE_PREFIX + self.node_id
+            await self.redis.rpush(queue_name, json.dumps(message))
+            increment_metric("messages_enqueued")
 
-    def consume_message(self):
-        """Ambil message dari queue"""
-        try:
-            msg_id, payload = self.queue.get(timeout=1)
-            return msg_id, payload
-        except queue.Empty:
-            return None, None
+    async def dequeue(self):
+        queue_name = REDIS_QUEUE_PREFIX + self.node_id
+        msg = await self.redis.lpop(queue_name)
+        if msg:
+            increment_metric("messages_dequeued")
+            return json.loads(msg)
+        return None
 
-class ConsistentHashRing:
-    def __init__(self, nodes: List[str]):
-        self.ring = sorted([(self.hash_key(n), n) for n in nodes])
+    # --- aiohttp server handlers ---
+    async def handle_enqueue(self, request):
+        data = await request.json()
+        key = data["key"]
+        message = data["message"]
+        await self.enqueue(key, message)
+        return web.json_response({"status": "ok"})
 
-    @staticmethod
-    def hash_key(key: str) -> int:
-        return int(hashlib.md5(key.encode()).hexdigest(), 16)
+    async def handle_dequeue(self, request):
+        msg = await self.dequeue()
+        return web.json_response({"message": msg})
 
-    def get_node(self, key: str) -> str:
-        h = self.hash_key(key)
-        for node_hash, node_id in self.ring:
-            if h <= node_hash:
-                return node_id
-        return self.ring[0][1]  # Wrap around
+    def get_app(self):
+        app = web.Application()
+        app.router.add_post("/enqueue", self.handle_enqueue)
+        app.router.add_get("/dequeue", self.handle_dequeue)
+        return app
