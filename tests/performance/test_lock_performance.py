@@ -8,7 +8,7 @@ class TestLockPerformanceAPI(unittest.TestCase):
         client = TestClient(app)
         start = time.time()
         for i in range(1000):
-            # Acquire lock
+
             r1 = client.post("/lock/acquire", params={"resource_id": f"res{i}"})
             self.assertEqual(r1.status_code, 200)
 

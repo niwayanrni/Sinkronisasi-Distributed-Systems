@@ -50,6 +50,9 @@ Proyek ini dirancang untuk mendemonstrasikan prinsip-prinsip sistem terdistribus
 - Message passing mendukung simulasi network partition.  
 - Raft & Cache modules masih stub, bisa diisi logika konsensus dan cache coherence.
 
+## Link Youtube
+link youtube = https://youtu.be/YMkXoc-3u9w
+
 ## How to Run
 
 1. **Install dependencies**

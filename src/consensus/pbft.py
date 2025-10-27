@@ -4,13 +4,10 @@ class PBFTNode:
         self.state = "initial"
     
     def propose(self, request):
-        # logic for proposing a request
         pass
     
     def prepare(self, message):
-        # logic for prepare phase
         pass
     
     def commit(self, message):
-        # logic for commit phase
         pass

@@ -3,7 +3,6 @@ from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 from fastapi.openapi.docs import get_swagger_ui_html
 
-# === Import semua komponen node ===
 try:
     from src.nodes.lock_manager import lock_router
     print("✅ lock_manager imported")
@@ -22,7 +21,7 @@ try:
 except Exception as e:
     print("❌ cache_node import failed:", e)
 
-# === Inisialisasi FastAPI utama ===
+
 app = FastAPI(
     title="Distributed Sync System API",
     version="1.0.0",
@@ -34,7 +33,7 @@ app = FastAPI(
     """
 )
 
-# === Load file YAML (opsional, kalau kamu punya docs/api_spec.yaml) ===
+
 try:
     with open("docs/api_spec.yaml", "r") as f:
         openapi_yaml = yaml.safe_load(f)
@@ -44,20 +43,17 @@ try:
 
     app.openapi = custom_openapi
 except FileNotFoundError:
-    # Kalau tidak ada file YAML, gunakan schema bawaan FastAPI
     pass
 
-# === Gabungkan semua router ke satu API ===
 app.include_router(lock_router, prefix="/lock", tags=["Distributed Lock Manager"])
 app.include_router(queue_router, prefix="/queue", tags=["Distributed Queue System"])
 app.include_router(cache_router, prefix="/cache", tags=["Distributed Cache Coherence"])
 
-# === Redirect root ke Swagger UI ===
+
 @app.get("/", include_in_schema=False)
 async def root():
     return RedirectResponse(url="/docs")
 
-# === Swagger UI ===
 @app.get("/docs", include_in_schema=False)
 async def swagger_ui():
     return get_swagger_ui_html(

@@ -35,10 +35,10 @@ def cache_status():
 def cache_metrics():
     return metrics.data
 
-# Daftarkan router
+
 app.include_router(router)
 
-# Jalankan langsung jika dijalankan manual
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("src.nodes.cache_node:app", host="0.0.0.0", port=8083, reload=True)

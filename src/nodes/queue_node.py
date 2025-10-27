@@ -12,13 +12,12 @@ app = FastAPI(
 router = APIRouter()
 metrics = Metrics()
 
-# Simulasi hash ring sederhana untuk konsistensi
 hash_ring = {}
 queues = {}
 
 def get_node_for_key(key: str):
     hashed = int(hashlib.sha256(key.encode()).hexdigest(), 16)
-    node = hashed % 3  # 3 nodes misalnya
+    node = hashed % 3
     return f"node-{node}"
 
 @router.post("/enqueue")
@@ -47,10 +46,10 @@ def queue_status():
 def queue_metrics():
     return metrics.data
 
-# Daftarkan router ke app
+
 app.include_router(router)
 
-# Jalankan langsung jika file dijalankan secara manual
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("src.nodes.queue_node:app", host="0.0.0.0", port=8082, reload=True)
