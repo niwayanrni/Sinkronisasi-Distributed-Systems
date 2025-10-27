@@ -1,0 +1,2 @@
+CLUSTER_NODES = ["A", "B", "C"]
+TIMEOUT = 5

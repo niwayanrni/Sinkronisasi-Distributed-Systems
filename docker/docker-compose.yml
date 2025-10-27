@@ -1,0 +1,14 @@
+version: "3"
+services:
+  node1:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.node
+    environment:
+      - NODE_ID=node1
+  node2:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.node
+    environment:
+      - NODE_ID=node2
