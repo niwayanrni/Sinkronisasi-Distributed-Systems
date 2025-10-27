@@ -1,0 +1,55 @@
+openapi: 3.0.3
+info:
+  title: Distributed Queue API
+  version: 1.0.0
+  description: API documentation for QueueNode in Distributed Sync System
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+
+paths:
+  /enqueue:
+    post:
+      summary: Enqueue a message
+      description: Add a message to the queue
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                key:
+                  type: string
+                  example: "task1"
+                message:
+                  type: object
+                  example: {"data": "hello world"}
+      responses:
+        '200':
+          description: Message enqueued successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+
+  /dequeue:
+    get:
+      summary: Dequeue a message
+      description: Retrieve the next message from the queue
+      responses:
+        '200':
+          description: Returns dequeued message or null
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: object
+                    nullable: true
+                    example: {"data": "hello world"}

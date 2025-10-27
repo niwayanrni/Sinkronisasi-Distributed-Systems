@@ -1,35 +1,39 @@
-from src.consensus.raft import RaftNode
+from fastapi import FastAPI
+from src.utils.metrics import Metrics
 
-class LockManager:
-    def __init__(self, node_id, peers):
-        self.raft = RaftNode(node_id, peers)
-        self.locks = {}
+app = FastAPI(
+    title="Distributed Lock Manager API",
+    version="1.0.0",
+    description="Implements Raft-based distributed lock system"
+)
 
-    def acquire_lock(self, resource_id, node_id, lock_type="exclusive"):
-        if self.raft.state != "leader":
-            print(f"[LOCK] Node {self.raft.node_id} bukan leader, tidak bisa kunci langsung.")
-            return False
+metrics = Metrics()
+locks = {}
 
-        if resource_id not in self.locks:
-            self.locks[resource_id] = {"type": lock_type, "holders": {node_id}}
-            self.raft.append_entry((resource_id, lock_type, node_id))
-            print(f"[LOCK] {node_id} acquired {lock_type} lock on {resource_id}")
-            return True
+@app.post("/lock/acquire")
+def acquire_lock(resource_id: str, mode: str = "exclusive"):
+    if resource_id in locks:
+        metrics.record("errors")
+        return {"status": "locked", "resource": resource_id}
 
-        existing = self.locks[resource_id]
-        if lock_type == "shared" and existing["type"] == "shared":
-            existing["holders"].add(node_id)
-            self.raft.append_entry((resource_id, lock_type, node_id))
-            return True
-        else:
-            print(f"[LOCK] {resource_id} sudah dikunci secara {existing['type']}")
-            return False
+    locks[resource_id] = mode
+    metrics.record("requests")
+    return {"status": "acquired", "resource": resource_id, "mode": mode}
 
-    def release_lock(self, resource_id, node_id):
-        if resource_id in self.locks and node_id in self.locks[resource_id]["holders"]:
-            self.locks[resource_id]["holders"].remove(node_id)
-            if not self.locks[resource_id]["holders"]:
-                del self.locks[resource_id]
-            print(f"[LOCK] {node_id} released lock on {resource_id}")
-            return True
-        return False
+@app.post("/lock/release")
+def release_lock(resource_id: str):
+    if resource_id in locks:
+        del locks[resource_id]
+        metrics.record("requests")
+        return {"status": "released", "resource": resource_id}
+
+    metrics.record("errors")
+    return {"status": "not_found"}
+
+@app.get("/lock/status")
+def get_locks():
+    return {"active_locks": locks}
+
+@app.get("/lock/metrics")
+def get_metrics():
+    return metrics.data

@@ -3,3 +3,6 @@ aioredis>=2.0
 async-timeout
 pytest
 locust
+fastapi
+uvicorn
+pyyaml
